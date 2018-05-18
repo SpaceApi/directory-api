@@ -11,8 +11,11 @@ import (
 	validator "github.com/spaceapi-community/go-spaceapi-validator"
 	"github.com/robfig/cron"
 
+	"github.com/rs/cors"
+
 	"goji.io"
 	"goji.io/pat"
+	"strconv"
 )
 
 type entry struct {
@@ -32,6 +35,8 @@ func init() {
 	loadStaticFile()
 	buildDirectory()
 
+	fmt.Println(len(spaceApiDirectory))
+
 	c := cron.New()
 	c.AddFunc("@hourly", func() {
 		log.Println("update directory")
@@ -45,20 +50,64 @@ func init() {
 func main() {
 	log.Println("started directory...")
 
-	mux := goji.NewMux()
-	mux.HandleFunc(pat.Get("/v0"), func (w http.ResponseWriter, r *http.Request) {
-		if err := json.NewEncoder(w).Encode(func() []entry {
-			var foo []entry
-			for _, entry := range spaceApiDirectory {
-				foo = append(foo, entry)
-			}
-			return foo
-		}()); err != nil {
-			panic(err)
-		}
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
 	})
 
+	mux := goji.NewMux()
+	mux.Use(c.Handler)
+	mux.HandleFunc(pat.Get("/"), serveV1)
+	mux.HandleFunc(pat.Get("/v1"), serveV1)
+	mux.HandleFunc(pat.Get("/v2"), serveV2)
+
 	log.Fatal(http.ListenAndServe(":8080", mux))
+}
+
+func getFilter(r *http.Request) (bool, bool) {
+	validFilterQuery := r.URL.Query().Get("valid")
+
+	if validFilterQuery == "all" {
+		return false, true
+	} else if validFilterQuery != "" {
+		validFilter, err := strconv.ParseBool(validFilterQuery)
+		if err != nil {
+			return true, false
+		}
+
+		return validFilter, false
+	}
+
+	return true, false
+}
+
+func serveV1 (w http.ResponseWriter, r *http.Request) {
+	validFilter, noFilter := getFilter(r)
+	if err := json.NewEncoder(w).Encode(func() interface{} {
+		foo := make(map[string]string)
+		for _, entry := range spaceApiDirectory {
+			if entry.Valid == validFilter || noFilter == true {
+				foo[entry.Space] = entry.Url
+			}
+		}
+		return foo
+	}()); err != nil {
+		panic(err)
+	}
+}
+
+func serveV2 (w http.ResponseWriter, r *http.Request) {
+	validFilter, noFilter := getFilter(r)
+	if err := json.NewEncoder(w).Encode(func() []entry {
+		var foo []entry
+		for _, entry := range spaceApiDirectory {
+			if entry.Valid == validFilter || noFilter == true {
+				foo = append(foo, entry)
+			}
+		}
+		return foo
+	}()); err != nil {
+		panic(err)
+	}
 }
 
 func loadStaticFile() {
@@ -116,7 +165,7 @@ func buildEntry(url string) entry {
 	}
 
 	validJson := json.Valid(body)
-	if !validJson {
+	if validJson == false {
 		entry.ErrMsg = "Server doesn't provid valid json"
 		return entry
 	}
@@ -144,6 +193,8 @@ func buildEntry(url string) entry {
 
 	if respJson["space"] != nil {
 		entry.Space = respJson["space"].(string)
+	} else {
+		entry.Space = url
 	}
 	entry.LastSeen = time.Now().Unix()
 
