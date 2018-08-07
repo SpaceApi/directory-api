@@ -1,14 +1,14 @@
 package main
 
 import (
-	"net/http"
-	"strconv"
 	"encoding/json"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"goji.io"
 	"goji.io/pat"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
+	"net/http"
+	"strconv"
 )
 
 func initApi() {
@@ -50,7 +50,7 @@ func getFilter(r *http.Request) (bool, bool) {
 	return true, false
 }
 
-func serveV1 (w http.ResponseWriter, r *http.Request) {
+func serveV1(w http.ResponseWriter, r *http.Request) {
 	validFilter, noFilter := getFilter(r)
 	if err := json.NewEncoder(w).Encode(func() interface{} {
 		foo := make(map[string]string)
@@ -65,7 +65,7 @@ func serveV1 (w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func serveV2 (w http.ResponseWriter, r *http.Request) {
+func serveV2(w http.ResponseWriter, r *http.Request) {
 	validFilter, noFilter := getFilter(r)
 	if err := json.NewEncoder(w).Encode(func() []entry {
 		var foo []entry

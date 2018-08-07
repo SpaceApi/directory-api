@@ -1,16 +1,16 @@
 package main
 
 import (
-	"time"
-	"net/http"
-	"github.com/prometheus/client_golang/prometheus"
-	"io/ioutil"
 	"encoding/json"
-	validator "github.com/spaceapi-community/go-spaceapi-validator"
 	"fmt"
-	"strings"
-	"log"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/robfig/cron"
+	validator "github.com/spaceapi-community/go-spaceapi-validator"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"strings"
+	"time"
 )
 
 var (
@@ -119,7 +119,6 @@ func buildEntry(url string) (entry, []byte) {
 		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError + resp.Status}).Observe(time.Since(start).Seconds())
 	}
 	defer resp.Body.Close()
-
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

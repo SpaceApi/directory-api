@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"encoding/json"
-	"net/http"
 	"github.com/felixge/httpsnoop"
+	"github.com/prometheus/client_golang/prometheus"
+	"net/http"
 	"strconv"
 )
 
@@ -67,9 +67,9 @@ func flatten(from map[string]interface{}, prepend string) []string {
 		obj, isObject := value.(map[string]interface{})
 
 		if isObject {
-			to = append(to, flatten(obj, prepend + "/" + key)...)
+			to = append(to, flatten(obj, prepend+"/"+key)...)
 		} else {
-			to = append(to, prepend + "/" + key)
+			to = append(to, prepend+"/"+key)
 		}
 	}
 
