@@ -3,6 +3,7 @@ RUN apk --no-cache add git
 WORKDIR /go/src/app
 COPY . .
 RUN go get -d  ./...
+RUN go generate
 RUN go install  ./...
 
 FROM alpine:latest

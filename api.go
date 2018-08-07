@@ -25,8 +25,12 @@ func initApi() {
 	mux.HandleFunc(pat.Get("/"), serveV1)
 	mux.HandleFunc(pat.Get("/v1"), serveV1)
 	mux.HandleFunc(pat.Get("/v2"), serveV2)
+	mux.HandleFunc(pat.Get("/openapi.json"), openApi)
 
 	log.Fatal(http.ListenAndServe(":8080", mux))
+}
+func openApi(writer http.ResponseWriter, request *http.Request) {
+	writer.Write([]byte(openapi))
 }
 
 func getFilter(r *http.Request) (bool, bool) {

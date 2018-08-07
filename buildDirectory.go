@@ -29,11 +29,12 @@ var (
 		prometheus.SummaryOpts{
 			Name: "spaceapi_response",
 			Help: "All the scraped spaces!",
-			MaxAge: 24 * 60 * 60,
 		},
 		[]string{"route", "error"},
 	)
 )
+
+//go:generate go run scripts/generate.go
 
 func init() {
 	prometheus.MustRegister(staticFileScrapingTime)
