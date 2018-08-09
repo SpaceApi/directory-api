@@ -29,6 +29,7 @@ var (
 		prometheus.SummaryOpts{
 			Name: "spaceapi_response",
 			Help: "All the scraped spaces!",
+			MaxAge: 4 * time.Hour,
 		},
 		[]string{"route", "error"},
 	)
