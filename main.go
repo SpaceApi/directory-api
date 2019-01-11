@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"flag"
 )
 
 type entry struct {
@@ -14,8 +15,28 @@ type entry struct {
 
 var spaceApiDirectory map[string]entry
 var spaceApiUrls []string
+var spaceApiDirectoryFile string
+var rebuildDirectoryOnStart bool
+
+func init() {
+	flag.StringVar(
+		&spaceApiDirectoryFile,
+		"storage",
+		"spaceApiDirectory.json",
+		"Path to the file for persistent storage",
+	)
+
+	flag.BoolVar(
+		&rebuildDirectoryOnStart,
+		"rebuildDirectory",
+		false,
+		"Rebuild directory on startup",
+	)
+	flag.Parse()
+}
 
 func main() {
-	log.Println("started directory daemon...")
+	log.Println("starting directory daemon...")
+	initBuildDirectory()
 	initApi()
 }

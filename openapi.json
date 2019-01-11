@@ -4,7 +4,7 @@
     "description": "This is the spaceApi directory",
     "version": "0.0.1",
     "title": "SpaceApi Directory",
-    "termsOfService": "https://example.com/daemon/terms",
+    "termsOfService": "https://spaceapi.io/daemon/terms",
     "contact": {
       "email": "spaceapi-team@chaospott.de"
     },
@@ -136,6 +136,6 @@
   },
   "externalDocs": {
     "description": "Find out more about spaceApi directory",
-    "url": "https://spaceapi.net"
+    "url": "https://spaceapi.io"
   }
 }
