@@ -15,8 +15,13 @@ jobs:
           tar -xz -C /tmp -f /tmp/docker-$VER.tgz
           mv /tmp/docker/* /usr/bin
     - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
-    - run: docker build -t spaceapi/directory .
+    - run: cd api && docker build -t spaceapi/directory-api .
     - run: |
-        docker tag spaceapi/directory spaceapi/directory:$CIRCLE_SHA1
-        docker push spaceapi/directory:$CIRCLE_SHA1
-        docker push spaceapi/directory:latest
+        docker tag spaceapi/directory-api spaceapi/directory-api:$CIRCLE_SHA1
+        docker push spaceapi/directory-api:$CIRCLE_SHA1
+        docker push spaceapi/directory-api:latest
+    - run: cd collector && docker build -t spaceapi/directory-collector .
+    - run: |
+        docker tag spaceapi/directory-collector spaceapi/directory-collector:$CIRCLE_SHA1
+        docker push spaceapi/directory-collector:$CIRCLE_SHA1
+        docker push spaceapi/directory-collector:latest
