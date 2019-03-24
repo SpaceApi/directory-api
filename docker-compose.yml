@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  web:
+    image: spaceapi/directory-api
+    build: api
+    ports:
+        - "8080:8080"
+    restart: on-failure
+  collector:
+    image: spaceapi/directory-collector
+    build: collector
+    restart: on-failure
+    volumes:
+      - "${SPACEAPI_DIRECTORY_DATA}:/srv/spaceapi"

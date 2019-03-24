@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+//go:generate go run scripts/generateOpenApi.go
+
 var (
 	staticFileScrapingTime = prometheus.NewGauge(
 		prometheus.GaugeOpts{
@@ -76,17 +78,21 @@ func main() {
 	prometheus.MustRegister(spaceRequestSummary)
 	spaceApiDirectory = make(map[string]entry)
 
-	loadPersistentDirectory()
+	directorySuccessfullyLoaded := loadPersistentDirectory()
 
-	if rebuildDirectoryOnStart {
+	if rebuildDirectoryOnStart || !directorySuccessfullyLoaded {
 		rebuildDirectory()
 	}
 
 	c := cron.New()
-	c.AddFunc("@hourly", func() {
+	err := c.AddFunc("@hourly", func() {
 		rebuildDirectory()
 	})
-	c.Start()
+	if err != nil {
+		log.Printf("Can't start rebuilding directory cron %v", err)
+	} else {
+		c.Start()
+	}
 
 	co := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
@@ -101,7 +107,7 @@ func main() {
 	mux.HandleFunc(pat.Get("/openapi.json"), openApi)
 
 	log.Println("starting api...")
-	log.Fatal(http.ListenAndServe(":8081", mux))
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
 func directory(w http.ResponseWriter, _ *http.Request) {
@@ -117,7 +123,10 @@ func directory(w http.ResponseWriter, _ *http.Request) {
 }
 
 func openApi(writer http.ResponseWriter, _ *http.Request) {
-	writer.Write([]byte(openapi))
+	_, err := writer.Write([]byte(openapi))
+	if err != nil {
+		writer.WriteHeader(500)
+	}
 }
 
 func rebuildDirectory() {
@@ -136,7 +145,12 @@ func loadStaticFile() {
 	if err != nil {
 		log.Println(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -144,7 +158,7 @@ func loadStaticFile() {
 	}
 
 	var staticDirectory map[string]interface{}
-	json.Unmarshal(body, &staticDirectory)
+	err = json.Unmarshal(body, &staticDirectory)
 
 	var spaceUrls []string
 	for _, value := range staticDirectory {
@@ -171,19 +185,21 @@ func persistDirectory() {
 	}
 }
 
-func loadPersistentDirectory() {
+func loadPersistentDirectory() bool {
 	log.Println("reading...")
 	fileContent, err := ioutil.ReadFile(spaceApiDirectoryFile)
 	if err != nil {
 		log.Println(err)
 		log.Println("can't read directory file, skipping...")
-		return
+		return false
 	}
 	err = json.Unmarshal(fileContent, &spaceApiDirectory)
 	if err != nil {
 		log.Println(err)
 		panic("can't unmarshal api directory")
 	}
+
+	return true
 }
 
 func buildDirectory() {
@@ -221,7 +237,12 @@ func buildEntry(url string) (entry, []byte) {
 	} else if resp.StatusCode != 200 {
 		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError + resp.Status}).Observe(time.Since(start).Seconds())
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -261,7 +282,11 @@ func buildEntry(url string) (entry, []byte) {
 	}
 
 	var respJson map[string]interface{}
-	json.Unmarshal(body, &respJson)
+	err = json.Unmarshal(body, &respJson)
+	if err != nil {
+		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": "json"}).Observe(time.Since(start).Seconds())
+		return entry, nil
+	}
 
 	entry.LastSeen = time.Now().Unix()
 	entry.Data = respJson

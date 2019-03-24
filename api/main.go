@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"github.com/felixge/httpsnoop"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
+	"github.com/spaceapi-community/go-spaceapi-spec/v13"
 	"goji.io"
 	"goji.io/pat"
 	"io/ioutil"
@@ -14,7 +16,7 @@ import (
 	"strconv"
 )
 
-//go:generate go run scripts/generate.go
+//go:generate go run scripts/generateOpenApi.go
 
 type entry struct {
 	Url      string `json:"url"`
@@ -29,7 +31,7 @@ type collectorEntry struct {
 	Valid    bool   `json:"valid"`
 	LastSeen int64  `json:"lastSeen,omitempty"`
 	ErrMsg   string `json:"errMsg,omitempty"`
-	Data	 interface{} `json:"data,omitempty"`
+	Data	 spaceapiStruct.SpaceAPI013 `json:"data,omitempty"`
 }
 
 var (
@@ -40,10 +42,18 @@ var (
 		},
 		[]string{"method", "route", "code"},
 	)
+	spaceApiCollectorUrl string
 )
 
 func init() {
 	prometheus.MustRegister(httpRequestSummary)
+
+	flag.StringVar(
+		&spaceApiCollectorUrl,
+		"collectorUrl",
+		"http://collector:8080",
+		"Url to the collector service",
+	)
 }
 
 func main() {
@@ -66,8 +76,11 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
-func openApi(writer http.ResponseWriter, request *http.Request) {
-	writer.Write([]byte(openapi))
+func openApi(writer http.ResponseWriter, _ *http.Request) {
+	_, err := writer.Write([]byte(openapi))
+	if err != nil {
+		writer.WriteHeader(500)
+	}
 }
 
 func getFilter(r *http.Request) (bool, bool) {
@@ -90,10 +103,10 @@ func getFilter(r *http.Request) (bool, bool) {
 func serveV1(w http.ResponseWriter, r *http.Request) {
 	validFilter, noFilter := getFilter(r)
 	if err := json.NewEncoder(w).Encode(func() interface{} {
-		var foo []string
+		foo := make(map[string]string)
 		for _, entry := range getDirectory() {
 			if entry.Valid == validFilter || noFilter == true {
-				foo = append(foo, entry.Url)
+				foo[entry.Data.Space] = entry.Url
 			}
 		}
 		return foo
@@ -111,7 +124,7 @@ func serveV2(w http.ResponseWriter, r *http.Request) {
 				foo = append(foo, entry{
 					collectorEntry.Url,
 					collectorEntry.Valid,
-					"",
+					collectorEntry.Data.Space,
 					collectorEntry.LastSeen,
 					collectorEntry.ErrMsg,
 				})
@@ -132,11 +145,16 @@ func statisticMiddelware(inner http.Handler) http.Handler {
 }
 
 func getDirectory() []collectorEntry {
-	resp, err := http.Get("http://localhost:8081/")
+	resp, err := http.Get(spaceApiCollectorUrl)
 	if err != nil {
 		log.Println(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -147,5 +165,4 @@ func getDirectory() []collectorEntry {
 	err = json.Unmarshal(body, &staticDirectory)
 
 	return staticDirectory
-
 }

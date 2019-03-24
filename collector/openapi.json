@@ -3,7 +3,7 @@
   "info": {
     "description": "This is the spaceApi collector",
     "version": "0.0.1",
-    "title": "SpaceApi Directory",
+    "title": "SpaceApi collector",
     "termsOfService": "https://spaceapi.io/daemon/terms",
     "contact": {
       "email": "spaceapi-team@chaospott.de"
@@ -14,68 +14,16 @@
     }
   },
   "paths": {
-    "/v1": {
+    "/": {
       "get": {
         "summary": "",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "valid",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "all",
-                "true",
-                "false"
-              ],
-              "default": "true"
-            },
-            "description": "Filter for valid endpoints"
-          }
-        ],
         "responses": {
           "200": {
             "description": "successful operation",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DirectoryV1"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "something went wrong"
-          }
-        }
-      }
-    },
-    "/v2": {
-      "get": {
-        "summary": "",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "valid",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "all",
-                "true",
-                "false"
-              ],
-              "default": "true"
-            },
-            "description": "Filter for valid endpoints"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DirectoryV2"
+                  "$ref": "#/components/schemas/DirectoryEntry"
                 }
               }
             }
@@ -89,12 +37,8 @@
   },
   "components": {
     "schemas": {
-      "DirectoryV1": {
-        "type": "object",
-        "properties": {}
-      },
-      "DirectoryV2": {
-        "description": "SpaceAPI Directory 0.2",
+      "DirectoryEntry": {
+        "description": "Internal SpaceAPI Directory entry",
         "type": "object",
         "properties": {
           "items": {
@@ -122,6 +66,10 @@
                 "errMsg": {
                   "description": "provided if we found an error with that specific endpoint",
                   "type": "string"
+                },
+                "data": {
+                  "description": "raw json from the last scraping",
+                  "type": "object"
                 }
               },
               "required": [
