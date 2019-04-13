@@ -12,4 +12,8 @@ WORKDIR /app
 COPY --from=builder /go/bin/app .
 EXPOSE 8080
 VOLUME /srv/spaceapi
+
+RUN adduser app -S -u 142
+USER app
+
 CMD ["./app", "-storage", "/srv/spaceapi/spaceapiDirectory.json"]
