@@ -132,6 +132,7 @@ func openApi(writer http.ResponseWriter, _ *http.Request) {
 func rebuildDirectory() {
 	log.Println("rebuilding directory...")
 	loadStaticFile()
+	removeMissingStaticEntries()
 	buildDirectory()
 	persistDirectory()
 	log.Println("rebuilding done.")
@@ -169,7 +170,22 @@ func loadStaticFile() {
 	staticFileScrapCounter.Inc()
 }
 
+func removeMissingStaticEntries() {
+	exists := false
+	for directoryUrl := range spaceApiDirectory {
+		exists = false
+		for _, url := range spaceApiUrls {
+			if directoryUrl == url {
+				exists = true
+			}
+		}
 
+		if !exists {
+			delete(spaceApiDirectory, directoryUrl)
+		}
+
+	}
+}
 
 func persistDirectory() {
 	log.Println("writing...")
