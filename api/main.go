@@ -103,13 +103,14 @@ func getFilter(r *http.Request) (bool, bool) {
 func serveV1(w http.ResponseWriter, r *http.Request) {
 	validFilter, noFilter := getFilter(r)
 	if err := json.NewEncoder(w).Encode(func() interface{} {
-		foo := make(map[string]string)
+		response := make(map[string]string)
 		for _, entry := range getDirectory() {
 			if entry.Valid == validFilter || noFilter == true {
-				foo[entry.Data.Space] = entry.Url
+				response[entry.Data.Space] = entry.Url
 			}
 		}
-		return foo
+		w.Header().Set("Content-Type", "application/json")
+		return response
 	}()); err != nil {
 		panic(err)
 	}
@@ -118,10 +119,10 @@ func serveV1(w http.ResponseWriter, r *http.Request) {
 func serveV2(w http.ResponseWriter, r *http.Request) {
 	validFilter, noFilter := getFilter(r)
 	if err := json.NewEncoder(w).Encode(func() []entry {
-		var foo []entry
+		var response []entry
 		for _, collectorEntry := range getDirectory() {
 			if collectorEntry.Valid == validFilter || noFilter == true {
-				foo = append(foo, entry{
+				response = append(response, entry{
 					collectorEntry.Url,
 					collectorEntry.Valid,
 					collectorEntry.Data.Space,
@@ -130,7 +131,8 @@ func serveV2(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 		}
-		return foo
+		w.Header().Set("Content-Type", "application/json")
+		return response
 	}()); err != nil {
 		panic(err)
 	}
