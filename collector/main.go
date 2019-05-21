@@ -142,7 +142,7 @@ func loadStaticFile() {
 	start := time.Now()
 	defer staticFileScrapingTime.Set(time.Since(start).Seconds())
 
-	resp, err := http.Get("https://raw.githubusercontent.com/fixme-lausanne/OpenSpaceDirectory/master/directory.json")
+	resp, err := http.Get("https://raw.githubusercontent.com/spaceapi/directory/master/directory.json")
 	if err != nil {
 		log.Println(err)
 	}
