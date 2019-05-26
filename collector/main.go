@@ -85,7 +85,7 @@ func main() {
 	}
 
 	c := cron.New()
-	err := c.AddFunc("@hourly", func() {
+	err := c.AddFunc("@every 10m", func() {
 		rebuildDirectory()
 	})
 	if err != nil {
