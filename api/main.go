@@ -7,12 +7,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
-	"github.com/spaceapi-community/go-spaceapi-spec/v13"
 	"goji.io"
 	"goji.io/pat"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"reflect"
 	"strconv"
 )
 
@@ -31,7 +31,7 @@ type collectorEntry struct {
 	Valid    bool   `json:"valid"`
 	LastSeen int64  `json:"lastSeen,omitempty"`
 	ErrMsg   string `json:"errMsg,omitempty"`
-	Data	 spaceapiStruct.SpaceAPI013 `json:"data,omitempty"`
+	Data	 interface{} `json:"data,omitempty"`
 }
 
 var (
@@ -70,6 +70,7 @@ func main() {
 	mux.HandleFunc(pat.Get("/"), serveV1)
 	mux.HandleFunc(pat.Get("/v1"), serveV1)
 	mux.HandleFunc(pat.Get("/v2"), serveV2)
+	mux.HandleFunc(pat.Get("/cache"), serveCache)
 	mux.HandleFunc(pat.Get("/openapi.json"), openApi)
 
 	log.Println("starting api...")
@@ -106,7 +107,11 @@ func serveV1(w http.ResponseWriter, r *http.Request) {
 		response := make(map[string]string)
 		for _, entry := range getDirectory() {
 			if entry.Valid == validFilter || noFilter == true {
-				response[entry.Data.Space] = entry.Url
+				spaceName := reflect.ValueOf(entry.Data).FieldByName("Space")
+
+				if spaceName.IsValid() {
+					response[spaceName.String()] = entry.Url
+				}
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -122,13 +127,33 @@ func serveV2(w http.ResponseWriter, r *http.Request) {
 		var response []entry
 		for _, collectorEntry := range getDirectory() {
 			if collectorEntry.Valid == validFilter || noFilter == true {
-				response = append(response, entry{
-					collectorEntry.Url,
-					collectorEntry.Valid,
-					collectorEntry.Data.Space,
-					collectorEntry.LastSeen,
-					collectorEntry.ErrMsg,
-				})
+				spaceName := reflect.ValueOf(collectorEntry.Data).FieldByName("Space")
+
+				if spaceName.IsValid() {
+					response = append(response, entry{
+						collectorEntry.Url,
+						collectorEntry.Valid,
+						spaceName.String(),
+						collectorEntry.LastSeen,
+						collectorEntry.ErrMsg,
+					})
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		return response
+	}()); err != nil {
+		panic(err)
+	}
+}
+
+func serveCache(w http.ResponseWriter, r *http.Request) {
+	validFilter, noFilter := getFilter(r)
+	if err := json.NewEncoder(w).Encode(func() []collectorEntry {
+		var response []collectorEntry
+		for _, collectorEntry := range getDirectory() {
+			if collectorEntry.Valid == validFilter || noFilter == true {
+				response = append(response, collectorEntry)
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
