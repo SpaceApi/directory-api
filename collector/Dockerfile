@@ -1,6 +1,6 @@
-FROM golang:1.11-alpine as builder
+FROM golang:1.12-alpine as builder
 RUN apk --no-cache add git
-WORKDIR /go/src/app
+WORKDIR /app
 COPY . .
 RUN go get -d  ./...
 RUN go generate
@@ -9,11 +9,11 @@ RUN go install  ./...
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
-COPY --from=builder /go/bin/app .
+COPY --from=builder /go/bin/collector /usr/local/bin/collector
 EXPOSE 8080
 VOLUME /srv/spaceapi
 
 RUN adduser app -S -u 142
 USER app
 
-CMD ["./app", "-storage", "/srv/spaceapi/spaceapiDirectory.json"]
+CMD ["collector", "-storage", "/srv/spaceapi/spaceapiDirectory.json"]

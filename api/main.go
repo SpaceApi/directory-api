@@ -11,8 +11,8 @@ import (
 	"goji.io/pat"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
-	"reflect"
 	"strconv"
 )
 
@@ -23,14 +23,14 @@ type entry struct {
 	Valid    bool   `json:"valid"`
 	Space	string	`json:"space,omitempty"`
 	LastSeen int64  `json:"lastSeen,omitempty"`
-	ErrMsg   string `json:"errMsg,omitempty"`
+	ErrMsg   []string `json:"errMsg,omitempty"`
 }
 
 type collectorEntry struct {
 	Url      string `json:"url"`
 	Valid    bool   `json:"valid"`
 	LastSeen int64  `json:"lastSeen,omitempty"`
-	ErrMsg   string `json:"errMsg,omitempty"`
+	ErrMsg   []string `json:"errMsg,omitempty"`
 	Data	 interface{} `json:"data,omitempty"`
 }
 
@@ -107,10 +107,11 @@ func serveV1(w http.ResponseWriter, r *http.Request) {
 		response := make(map[string]string)
 		for _, entry := range getDirectory() {
 			if entry.Valid == validFilter || noFilter == true {
-				spaceName := reflect.ValueOf(entry.Data).FieldByName("Space")
-
-				if spaceName.IsValid() {
-					response[spaceName.String()] = entry.Url
+				if entry.Data != nil {
+				  spaceName := entry.Data.(map[string]interface{})["space"]
+				  response[spaceName.(string)] = entry.Url
+				} else {
+				  response["unknown_" + strconv.FormatInt(rand.Int63(), 10)] = entry.Url
 				}
 			}
 		}
@@ -127,17 +128,19 @@ func serveV2(w http.ResponseWriter, r *http.Request) {
 		var response []entry
 		for _, collectorEntry := range getDirectory() {
 			if collectorEntry.Valid == validFilter || noFilter == true {
-				spaceName := reflect.ValueOf(collectorEntry.Data).FieldByName("Space")
-
-				if spaceName.IsValid() {
-					response = append(response, entry{
-						collectorEntry.Url,
-						collectorEntry.Valid,
-						spaceName.String(),
-						collectorEntry.LastSeen,
-						collectorEntry.ErrMsg,
-					})
+				var spaceName string
+				if collectorEntry.Data != nil {
+					spaceName = collectorEntry.Data.(map[string]interface{})["space"].(string)
+				} else {
+					spaceName = ""
 				}
+				response = append(response, entry{
+					collectorEntry.Url,
+					collectorEntry.Valid,
+					spaceName,
+					collectorEntry.LastSeen,
+					collectorEntry.ErrMsg,
+				})
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
