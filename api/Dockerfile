@@ -1,6 +1,6 @@
-FROM golang:1.11-alpine as builder
+FROM golang:1.12-alpine as builder
 RUN apk --no-cache add git
-WORKDIR /go/src/app
+WORKDIR /app
 COPY . .
 RUN go get -d  ./...
 RUN go generate
@@ -9,10 +9,10 @@ RUN go install  ./...
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
-COPY --from=builder /go/bin/app .
+COPY --from=builder /go/bin/api /usr/local/bin/api
 EXPOSE 8080
 
 RUN adduser app -S -u 142
 USER app
 
-CMD ["./app"]
+CMD ["api"]
