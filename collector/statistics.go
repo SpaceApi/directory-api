@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/felixge/httpsnoop"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
+	"sort"
 	"strconv"
 )
 
@@ -23,6 +25,7 @@ var (
 		},
 		[]string{"method", "route", "code"},
 	)
+	statistics map[string]map[string][]string
 )
 
 func init() {
@@ -31,9 +34,56 @@ func init() {
 }
 
 func generateFieldStatistic(jsonArray [][]byte) {
+	newStats :=  make(map[string]map[string][]string)
 	for _, value := range jsonArray {
-		bar(value)
+		apiVersion, space, fields, err := getNewStats(value)
+		if err == nil {
+			if _, ok := newStats[space]; !ok {
+				newStats[space] = make(map[string][]string)
+			}
+
+			newStats[space][apiVersion] = fields
+		}
 	}
+
+	for spaceName, value := range statistics {
+		if _, ok := newStats[spaceName]; !ok {
+			for version, fields := range value {
+				for _, field := range fields {
+					deleteGauge(version, spaceName, field)
+				}
+			}
+		} else {
+			for version, fields := range value {
+				if _, ok := newStats[spaceName][version]; !ok {
+					for _, field := range fields {
+						deleteGauge(version, spaceName, field)
+					}
+				} else {
+					for _, field := range fields {
+						if sort.SearchStrings(newStats[spaceName][version], field) == 0 {
+							deleteGauge(version, spaceName, field)
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	for spaceName, value := range newStats {
+		for version, fields := range value {
+			for _, field := range fields {
+				spaceFieldGauge.With(prometheus.Labels{"version": version, "space": spaceName, "field": field}).Set(1)
+			}
+		}
+	}
+
+	statistics = newStats
+}
+
+func deleteGauge(version string, spaceName string, field string) {
+	spaceFieldGauge.Delete(prometheus.Labels{"version": version, "space": spaceName, "field": field})
 }
 
 func statisticMiddelware(inner http.Handler) http.Handler {
@@ -44,20 +94,22 @@ func statisticMiddelware(inner http.Handler) http.Handler {
 	return http.HandlerFunc(mw)
 }
 
-func bar(content []byte) {
+func getNewStats(content []byte) (string, string, []string, error) {
 	var value interface{}
 	err := json.Unmarshal(content, &value)
 
-	if err == nil {
-		castedValue := value.(map[string]interface{})
-		apiVersion, ok := castedValue["api"].(string)
-		space, ok2 := castedValue["space"].(string)
+	if err != nil {
+		return "", "", nil, err
+	}
 
-		if ok && ok2 {
-			for _, field := range flatten(castedValue, "") {
-				spaceFieldGauge.With(prometheus.Labels{"version": apiVersion, "space": space, "field": field}).Set(1)
-			}
-		}
+	castedValue := value.(map[string]interface{})
+	apiVersion, ok := castedValue["api"].(string)
+	space, ok2 := castedValue["space"].(string)
+
+	if ok && ok2 {
+		return apiVersion, space, flatten(castedValue, ""), nil
+	} else {
+		return "", "", nil, errors.New("api or space doesn't exist")
 	}
 }
 

@@ -42,11 +42,11 @@ var (
 )
 
 type entry struct {
-	Url      string `json:"url"`
-	Valid    bool   `json:"valid"`
-	LastSeen int64  `json:"lastSeen,omitempty"`
-	ErrMsg   []string `json:"errMsg,omitempty"`
-	Data	 interface{} `json:"data,omitempty"`
+	Url      string      `json:"url"`
+	Valid    bool        `json:"valid"`
+	LastSeen int64       `json:"lastSeen,omitempty"`
+	ErrMsg   []string    `json:"errMsg,omitempty"`
+	Data     interface{} `json:"data,omitempty"`
 }
 
 var spaceApiDirectory map[string]entry
@@ -245,7 +245,7 @@ func buildEntry(url string) (entry, []byte) {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		entry.ErrMsg = []string{ err.Error() }
+		entry.ErrMsg = []string{err.Error()}
 		spaceError = "http"
 		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
 		return entry, nil
@@ -261,7 +261,7 @@ func buildEntry(url string) (entry, []byte) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		entry.ErrMsg = []string{ err.Error() }
+		entry.ErrMsg = []string{err.Error()}
 		spaceError = "body"
 		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
 		return entry, nil
@@ -269,7 +269,7 @@ func buildEntry(url string) (entry, []byte) {
 
 	validJson := json.Valid(body)
 	if validJson == false {
-		entry.ErrMsg = []string{ "Server doesn't provide valid json" }
+		entry.ErrMsg = []string{"Server doesn't provide valid json"}
 		spaceError = "json"
 		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
 		return entry, nil
@@ -277,7 +277,7 @@ func buildEntry(url string) (entry, []byte) {
 
 	result, err := validator.Validate(string(body[:]))
 	if err != nil {
-		entry.ErrMsg = []string{ err.Error() }
+		entry.ErrMsg = []string{err.Error()}
 		spaceError = "validation"
 		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
 		return entry, nil

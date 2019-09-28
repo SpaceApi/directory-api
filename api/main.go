@@ -19,19 +19,19 @@ import (
 //go:generate go run scripts/generateOpenApi.go
 
 type entry struct {
-	Url      string `json:"url"`
-	Valid    bool   `json:"valid"`
-	Space	string	`json:"space,omitempty"`
-	LastSeen int64  `json:"lastSeen,omitempty"`
+	Url      string   `json:"url"`
+	Valid    bool     `json:"valid"`
+	Space    string   `json:"space,omitempty"`
+	LastSeen int64    `json:"lastSeen,omitempty"`
 	ErrMsg   []string `json:"errMsg,omitempty"`
 }
 
 type collectorEntry struct {
-	Url      string `json:"url"`
-	Valid    bool   `json:"valid"`
-	LastSeen int64  `json:"lastSeen,omitempty"`
-	ErrMsg   []string `json:"errMsg,omitempty"`
-	Data	 interface{} `json:"data,omitempty"`
+	Url      string      `json:"url"`
+	Valid    bool        `json:"valid"`
+	LastSeen int64       `json:"lastSeen,omitempty"`
+	ErrMsg   []string    `json:"errMsg,omitempty"`
+	Data     interface{} `json:"data,omitempty"`
 }
 
 var (
@@ -108,10 +108,10 @@ func serveV1(w http.ResponseWriter, r *http.Request) {
 		for _, entry := range getDirectory() {
 			if entry.Valid == validFilter || noFilter == true {
 				if entry.Data != nil {
-				  spaceName := entry.Data.(map[string]interface{})["space"]
-				  response[spaceName.(string)] = entry.Url
+					spaceName := entry.Data.(map[string]interface{})["space"]
+					response[spaceName.(string)] = entry.Url
 				} else {
-				  response["unknown_" + strconv.FormatInt(rand.Int63(), 10)] = entry.Url
+					response["unknown_"+strconv.FormatInt(rand.Int63(), 10)] = entry.Url
 				}
 			}
 		}

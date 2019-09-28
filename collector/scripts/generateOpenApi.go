@@ -14,9 +14,9 @@ func main() {
 		append(
 			append(
 				[]byte("package main\n\nvar openapi = `"),
-				openApiContent...
+				openApiContent...,
 			),
-			[]byte("`")...
+			[]byte("`")...,
 		),
 	)
 	if err != nil {
