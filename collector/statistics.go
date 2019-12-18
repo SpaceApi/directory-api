@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/felixge/httpsnoop"
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,7 +32,7 @@ func init() {
 	prometheus.MustRegister(httpRequestSummary)
 }
 
-func generateFieldStatistic(jsonArray [][]byte) {
+func generateFieldStatistic(jsonArray []map[string]interface{}) {
 	newStats :=  make(map[string]map[string][]string)
 	for _, value := range jsonArray {
 		apiVersion, space, fields, err := getNewStats(value)
@@ -43,6 +42,14 @@ func generateFieldStatistic(jsonArray [][]byte) {
 			}
 
 			newStats[space][apiVersion] = fields
+		}
+	}
+
+	for spaceName, value := range newStats {
+		for version, fields := range value {
+			for _, field := range fields {
+				spaceFieldGauge.With(prometheus.Labels{"version": version, "space": spaceName, "field": field}).Set(1)
+			}
 		}
 	}
 
@@ -70,15 +77,6 @@ func generateFieldStatistic(jsonArray [][]byte) {
 		}
 	}
 
-
-	for spaceName, value := range newStats {
-		for version, fields := range value {
-			for _, field := range fields {
-				spaceFieldGauge.With(prometheus.Labels{"version": version, "space": spaceName, "field": field}).Set(1)
-			}
-		}
-	}
-
 	statistics = newStats
 }
 
@@ -94,14 +92,7 @@ func statisticMiddelware(inner http.Handler) http.Handler {
 	return http.HandlerFunc(mw)
 }
 
-func getNewStats(content []byte) (string, string, []string, error) {
-	var value interface{}
-	err := json.Unmarshal(content, &value)
-
-	if err != nil {
-		return "", "", nil, err
-	}
-
+func getNewStats(value interface{}) (string, string, []string, error) {
 	castedValue := value.(map[string]interface{})
 	apiVersion, ok := castedValue["api"].(string)
 	space, ok2 := castedValue["space"].(string)

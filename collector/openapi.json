@@ -1,5 +1,10 @@
 {
   "openapi": "3.0.0",
+  "servers": [
+    {
+      "url": "https://collector.spaceapi.io"
+    }
+  ],
   "info": {
     "description": "This is the spaceApi collector",
     "version": "0.0.1",
