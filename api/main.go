@@ -54,6 +54,8 @@ func init() {
 		"http://collector:8080",
 		"Url to the collector service",
 	)
+
+    flag.Parse()
 }
 
 func main() {
