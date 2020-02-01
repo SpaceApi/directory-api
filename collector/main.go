@@ -271,6 +271,7 @@ func validateEntry(ctx context.Context, url string) (spaceapivalidatorclient.Val
 	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "Cors"}).Set(b2i[response.Cors])
 	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "ContentType"}).Set(b2i[response.ContentType])
 	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "CertValid"}).Set(b2i[response.CertValid])
+	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "Valid"}).Set(b2i[response.Valid])
 
 	return response, nil
 }

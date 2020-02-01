@@ -81,7 +81,7 @@ func generateFieldStatistic(jsonArray []map[string]interface{}) {
 }
 
 func deleteGauge(version string, spaceName string, field string) {
-	spaceFieldGauge.Delete(prometheus.Labels{"version": version, "space": spaceName, "field": field})
+	spaceFieldGauge.With(prometheus.Labels{"version": version, "space": spaceName, "field": field}).Set(0)
 }
 
 func statisticMiddelware(inner http.Handler) http.Handler {
