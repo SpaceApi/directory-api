@@ -1,18 +1,19 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/robfig/cron"
 	"github.com/rs/cors"
-	validator "github.com/spaceapi-community/go-spaceapi-validator"
+	"github.com/spaceapi-community/go-spaceapi-validator-client"
 	"goji.io"
 	"goji.io/pat"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 )
@@ -37,7 +38,14 @@ var (
 			Help:   "All the scraped spaces!",
 			MaxAge: 4 * time.Hour,
 		},
-		[]string{"route", "error"},
+		[]string{"route"},
+	)
+	spaceValidationGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "spaceapi_validation",
+			Help: "Result of the validator",
+		},
+		[]string{"route", "attribute"},
 	)
 )
 
@@ -46,7 +54,8 @@ type entry struct {
 	Valid    bool        `json:"valid"`
 	LastSeen int64       `json:"lastSeen,omitempty"`
 	ErrMsg   []string    `json:"errMsg,omitempty"`
-	Data     interface{} `json:"data,omitempty"`
+	Data     map[string]interface{} `json:"data,omitempty"`
+	ValidationResult	spaceapivalidatorclient.ValidateUrlV2Response	`json:"validationResult,omitempty"`
 }
 
 var spaceApiDirectory map[string]entry
@@ -75,6 +84,7 @@ func main() {
 	prometheus.MustRegister(staticFileScrapingTime)
 	prometheus.MustRegister(staticFileScrapCounter)
 	prometheus.MustRegister(spaceRequestSummary)
+	prometheus.MustRegister(spaceValidationGauge)
 	spaceApiDirectory = make(map[string]entry)
 
 	directorySuccessfullyLoaded := loadPersistentDirectory()
@@ -84,7 +94,7 @@ func main() {
 	}
 
 	c := cron.New()
-	err := c.AddFunc("@every 10m", func() {
+	err := c.AddFunc("@every 1m", func() {
 		rebuildDirectory()
 	})
 	if err != nil {
@@ -130,9 +140,10 @@ func openApi(writer http.ResponseWriter, _ *http.Request) {
 
 func rebuildDirectory() {
 	log.Println("rebuilding directory...")
+	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
 	loadStaticFile()
 	removeMissingStaticEntries()
-	buildDirectory()
+	buildDirectory(ctx)
 	persistDirectory()
 	log.Println("rebuilding done.")
 }
@@ -182,7 +193,6 @@ func removeMissingStaticEntries() {
 		if !exists {
 			delete(spaceApiDirectory, directoryUrl)
 		}
-
 	}
 }
 
@@ -217,95 +227,75 @@ func loadPersistentDirectory() bool {
 	return true
 }
 
-func buildDirectory() {
-	var rawJsonArray [][]byte
+func buildDirectory(ctx context.Context) {
+	c := make(chan entry, 32)
 	for _, spaceApiUrl := range spaceApiUrls {
-		entry, rawJson := buildEntry(spaceApiUrl)
-
-		if entry.Valid {
-			rawJsonArray = append(rawJsonArray, rawJson)
-		}
-
-		if entry.LastSeen == 0 {
-			entry.LastSeen = spaceApiDirectory[spaceApiUrl].LastSeen
-		}
-
-		spaceApiDirectory[spaceApiUrl] = entry
+		go buildEntry(ctx, spaceApiUrl, c)
 	}
-	generateFieldStatistic(rawJsonArray)
+
+	n := len(spaceApiUrls)
+	for ; n > 0; n-- {
+		v := <- c
+		if v.LastSeen == 0 {
+		    v.LastSeen = spaceApiDirectory[v.Url].LastSeen
+		}
+
+		spaceApiDirectory[v.Url] = v
+	}
+
+	var returnArray []map[string]interface{}
+	for _, entry := range spaceApiDirectory {
+		returnArray = append(returnArray, entry.Data)
+	}
+
+	generateFieldStatistic(returnArray)
 }
 
-func buildEntry(url string) (entry, []byte) {
+func validateEntry(ctx context.Context, url string) (spaceapivalidatorclient.ValidateUrlV2Response, error) {
+	apiClient := spaceapivalidatorclient.NewAPIClient(spaceapivalidatorclient.NewConfiguration())
+	response, httpResp, err := apiClient.V2Api.V2ValidateURLPost(ctx, spaceapivalidatorclient.ValidateUrlV2{Url: url})
+	if err != nil {
+		if httpResp != nil && httpResp.StatusCode == 429 {
+			log.Println("Too many requests, enhancing calm...")
+			time.Sleep(time.Duration(rand.Intn(9) + 1) * time.Second)
+			return validateEntry(ctx, url)
+		}
+
+		return spaceapivalidatorclient.ValidateUrlV2Response{}, err
+	}
+
+	var b2i = map[bool]float64{false: 0, true: 1}
+	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "isHttps"}).Set(b2i[response.IsHttps])
+	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "HttpsForward"}).Set(b2i[response.HttpsForward])
+	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "Reachable"}).Set(b2i[response.Reachable])
+	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "Cors"}).Set(b2i[response.Cors])
+	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "ContentType"}).Set(b2i[response.ContentType])
+	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "CertValid"}).Set(b2i[response.CertValid])
+	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "Valid"}).Set(b2i[response.Valid])
+
+	return response, nil
+}
+
+func buildEntry(ctx context.Context, url string, c chan entry) {
+	ctx, _ = context.WithTimeout(ctx, 30 * time.Second)
 	start := time.Now()
-	var spaceError = ""
 
 	entry := entry{
 		Url: url,
 	}
 
-	resp, err := http.Get(url)
+	response, err := validateEntry(ctx, url)
+	defer spaceRequestSummary.With(prometheus.Labels{"route": url}).Observe(time.Since(start).Seconds())
 	if err != nil {
-		entry.ErrMsg = []string{err.Error()}
-		spaceError = "http"
-		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
-		return entry, nil
-	} else if resp.StatusCode != 200 {
-		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError + resp.Status}).Observe(time.Since(start).Seconds())
-	}
-	defer func() {
-		err := resp.Body.Close()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		entry.ErrMsg = []string{err.Error()}
-		spaceError = "body"
-		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
-		return entry, nil
+		c <- entry
+		return
 	}
 
-	validJson := json.Valid(body)
-	if validJson == false {
-		entry.ErrMsg = []string{"Server doesn't provide valid json"}
-		spaceError = "json"
-		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
-		return entry, nil
-	}
-
-	result, err := validator.Validate(string(body[:]))
-	if err != nil {
-		entry.ErrMsg = []string{err.Error()}
-		spaceError = "validation"
-		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
-		return entry, nil
-	}
-
-	entry.Valid = result.Valid
-	if result.Valid == false {
-		spaceError = "invalid"
-		entry.ErrMsg = func() []string {
-			var errorMsgs []string
-			for _, err := range result.Errors {
-				errorMsgs = append(errorMsgs, fmt.Sprintf("%s %s %s", err.Context, err.Field, err.Description))
-			}
-
-			return errorMsgs
-		}()
-	}
-
-	var respJson map[string]interface{}
-	err = json.Unmarshal(body, &respJson)
-	if err != nil {
-		defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": "json"}).Observe(time.Since(start).Seconds())
-		return entry, nil
-	}
-
+	entry.ValidationResult = response
+	entry.Valid = response.Valid
 	entry.LastSeen = time.Now().Unix()
-	entry.Data = respJson
+	entry.Data = response.ValidatedJson
 
-	defer spaceRequestSummary.With(prometheus.Labels{"route": url, "error": spaceError}).Observe(time.Since(start).Seconds())
-	return entry, body
+	c <- entry
+	return
 }
