@@ -249,6 +249,7 @@ func buildDirectory(ctx context.Context) {
 	}
 
 	generateFieldStatistic(returnArray)
+	generateCountryStatistics(spaceApiDirectory)
 }
 
 func validateEntry(ctx context.Context, url string) (spaceapivalidatorclient.ValidateUrlV2Response, error) {
