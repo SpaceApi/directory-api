@@ -2,9 +2,12 @@ package main
 
 import (
 	"errors"
+	"github.com/codingsince1985/geo-golang/openstreetmap"
 	"github.com/felixge/httpsnoop"
 	"github.com/prometheus/client_golang/prometheus"
+	"log"
 	"net/http"
+	"reflect"
 	"sort"
 	"strconv"
 )
@@ -17,6 +20,13 @@ var (
 		},
 		[]string{"version", "space", "field"},
 	)
+	spaceCountryGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "spaceapi_country",
+			Help: "Countries spaces are from",
+		},
+		[]string{"country"},
+	)
 	httpRequestSummary = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name: "spaceapi_http_requests",
@@ -25,11 +35,63 @@ var (
 		[]string{"method", "route", "code"},
 	)
 	statistics map[string]map[string][]string
+	latLonCountry map[float64]map[float64]string
 )
 
 func init() {
+	latLonCountry = make(map[float64]map[float64]string)
 	prometheus.MustRegister(spaceFieldGauge)
+	prometheus.MustRegister(spaceCountryGauge)
 	prometheus.MustRegister(httpRequestSummary)
+}
+
+func generateCountryStatistics(entries map[string]entry) {
+	spaceCountryGauge.Reset()
+	for _, value := range entries {
+		if value.Data["location"] != nil && value.Valid {
+			val := reflect.ValueOf(value.Data["location"])
+
+			var latVal, lonVal reflect.Value
+
+			for _, foo := range val.MapKeys() {
+				if foo.String() == "lat" {
+					latVal = val.MapIndex(foo)
+				}
+
+				if foo.String() == "lon" {
+					lonVal = val.MapIndex(foo)
+				}
+			}
+
+			countryCode, err := getCountryCodeForLatLong(latVal.Interface().(float64), lonVal.Interface().(float64))
+			if err == nil {
+				spaceCountryGauge.With(prometheus.Labels{"country": countryCode}).Inc()
+			} else {
+				log.Printf("%v\n", err)
+			}
+		}
+	}
+}
+
+func getCountryCodeForLatLong(lat, long float64) (string, error) {
+	if _, ok := latLonCountry[lat]; ok {
+		if _, ok := latLonCountry[lat][long]; ok {
+			return latLonCountry[lat][long], nil
+		}
+	} else {
+		latLonCountry[lat] = make(map[float64]string)
+	}
+
+	geocoder := openstreetmap.Geocoder()
+	address, err := geocoder.ReverseGeocode(lat, long)
+	if err != nil {
+		log.Printf("Unable to geocode lat: %v, long: %v", lat, long)
+		return "", err
+	}
+
+	latLonCountry[lat][long] = address.CountryCode
+
+	return address.CountryCode, nil
 }
 
 func generateFieldStatistic(jsonArray []map[string]interface{}) {
