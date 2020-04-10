@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"github.com/codingsince1985/geo-golang/openstreetmap"
 	"github.com/felixge/httpsnoop"
 	"github.com/prometheus/client_golang/prometheus"
@@ -63,7 +64,7 @@ func generateCountryStatistics(entries map[string]entry) {
 
 			countryCode, err := getCountryCodeForLatLong(latVal.Interface().(float64), lonVal.Interface().(float64))
 			if err == nil {
-				spaceCountryGauge.With(prometheus.Labels{"country": countryCode, "route": value.Data["url"].(string)}).Inc()
+				spaceCountryGauge.With(prometheus.Labels{"country": countryCode, "route": value.Url}).Inc()
 			} else {
 				log.Printf("%v\n", err)
 			}
@@ -83,8 +84,7 @@ func getCountryCodeForLatLong(lat, long float64) (string, error) {
 	geocoder := openstreetmap.Geocoder()
 	address, err := geocoder.ReverseGeocode(lat, long)
 	if err != nil {
-		log.Printf("Unable to geocode lat: %v, long: %v", lat, long)
-		return "", err
+		return "", fmt.Errorf("unable to geocode lat: %v, long: %v, error was: %v", lat, long, err)
 	}
 
 	latLonCountry[lat][long] = address.CountryCode
@@ -92,16 +92,16 @@ func getCountryCodeForLatLong(lat, long float64) (string, error) {
 	return address.CountryCode, nil
 }
 
-func generateFieldStatistic(jsonArray []map[string]interface{}) {
+func generateFieldStatistic(jsonArray map[string]entry) {
 	newStats :=  make(map[string]map[string][]string)
 	for _, value := range jsonArray {
-		apiVersion, space, fields, err := getNewStats(value)
+		apiVersion, fields, err := getNewStats(value.Data)
 		if err == nil {
-			if _, ok := newStats[space]; !ok {
-				newStats[space] = make(map[string][]string)
+			if _, ok := newStats[value.Url]; !ok {
+				newStats[value.Url] = make(map[string][]string)
 			}
 
-			newStats[space][apiVersion] = fields
+			newStats[value.Url][apiVersion] = fields
 		}
 	}
 
@@ -123,15 +123,14 @@ func statisticMiddelware(inner http.Handler) http.Handler {
 	return http.HandlerFunc(mw)
 }
 
-func getNewStats(value interface{}) (string, string, []string, error) {
+func getNewStats(value interface{}) (string, []string, error) {
 	castedValue := value.(map[string]interface{})
 	apiVersion, ok := castedValue["api"].(string)
-	space, ok2 := castedValue["url"].(string)
 
-	if ok && ok2 {
-		return apiVersion, space, flatten(castedValue, ""), nil
+	if ok {
+		return apiVersion, flatten(castedValue, ""), nil
 	} else {
-		return "", "", nil, errors.New("api or space doesn't exist")
+		return "", nil, errors.New("api or space doesn't exist")
 	}
 }
 

@@ -144,6 +144,8 @@ func rebuildDirectory() {
 	loadStaticFile()
 	removeMissingStaticEntries()
 	buildDirectory(ctx)
+	generateFieldStatistic(spaceApiDirectory)
+	generateCountryStatistics(spaceApiDirectory)
 	persistDirectory()
 	log.Println("rebuilding done.")
 }
@@ -223,6 +225,8 @@ func loadPersistentDirectory() bool {
 		log.Println(err)
 		panic("can't unmarshal api directory")
 	}
+	generateFieldStatistic(spaceApiDirectory)
+	generateCountryStatistics(spaceApiDirectory)
 
 	return true
 }
@@ -242,14 +246,6 @@ func buildDirectory(ctx context.Context) {
 
 		spaceApiDirectory[v.Url] = v
 	}
-
-	var returnArray []map[string]interface{}
-	for _, entry := range spaceApiDirectory {
-		returnArray = append(returnArray, entry.Data)
-	}
-
-	generateFieldStatistic(returnArray)
-	generateCountryStatistics(spaceApiDirectory)
 }
 
 func validateEntry(ctx context.Context, url string) (spaceapivalidatorclient.ValidateUrlV2Response, error) {
