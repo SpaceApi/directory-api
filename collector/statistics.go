@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"reflect"
-	"sort"
 	"strconv"
 )
 
@@ -18,14 +17,14 @@ var (
 			Name: "spaceapi_field",
 			Help: "Fields used from the spec",
 		},
-		[]string{"version", "space", "field"},
+		[]string{"version", "route", "field"},
 	)
 	spaceCountryGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "spaceapi_country",
 			Help: "Countries spaces are from",
 		},
-		[]string{"country"},
+		[]string{"country", "route"},
 	)
 	httpRequestSummary = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
@@ -34,7 +33,6 @@ var (
 		},
 		[]string{"method", "route", "code"},
 	)
-	statistics map[string]map[string][]string
 	latLonCountry map[float64]map[float64]string
 )
 
@@ -48,7 +46,7 @@ func init() {
 func generateCountryStatistics(entries map[string]entry) {
 	spaceCountryGauge.Reset()
 	for _, value := range entries {
-		if value.Data["location"] != nil && value.Valid {
+		if value.Data["location"] != nil && value.Data["url"] != nil && value.Valid {
 			val := reflect.ValueOf(value.Data["location"])
 
 			var latVal, lonVal reflect.Value
@@ -65,7 +63,7 @@ func generateCountryStatistics(entries map[string]entry) {
 
 			countryCode, err := getCountryCodeForLatLong(latVal.Interface().(float64), lonVal.Interface().(float64))
 			if err == nil {
-				spaceCountryGauge.With(prometheus.Labels{"country": countryCode}).Inc()
+				spaceCountryGauge.With(prometheus.Labels{"country": countryCode, "route": value.Data["url"].(string)}).Inc()
 			} else {
 				log.Printf("%v\n", err)
 			}
@@ -107,43 +105,14 @@ func generateFieldStatistic(jsonArray []map[string]interface{}) {
 		}
 	}
 
+	spaceFieldGauge.Reset()
 	for spaceName, value := range newStats {
 		for version, fields := range value {
 			for _, field := range fields {
-				spaceFieldGauge.With(prometheus.Labels{"version": version, "space": spaceName, "field": field}).Set(1)
+				spaceFieldGauge.With(prometheus.Labels{"version": version, "route": spaceName, "field": field}).Set(1)
 			}
 		}
 	}
-
-	for spaceName, value := range statistics {
-		if _, ok := newStats[spaceName]; !ok {
-			for version, fields := range value {
-				for _, field := range fields {
-					deleteGauge(version, spaceName, field)
-				}
-			}
-		} else {
-			for version, fields := range value {
-				if _, ok := newStats[spaceName][version]; !ok {
-					for _, field := range fields {
-						deleteGauge(version, spaceName, field)
-					}
-				} else {
-					for _, field := range fields {
-						if sort.SearchStrings(newStats[spaceName][version], field) == 0 {
-							deleteGauge(version, spaceName, field)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	statistics = newStats
-}
-
-func deleteGauge(version string, spaceName string, field string) {
-	spaceFieldGauge.With(prometheus.Labels{"version": version, "space": spaceName, "field": field}).Set(0)
 }
 
 func statisticMiddelware(inner http.Handler) http.Handler {
@@ -157,7 +126,7 @@ func statisticMiddelware(inner http.Handler) http.Handler {
 func getNewStats(value interface{}) (string, string, []string, error) {
 	castedValue := value.(map[string]interface{})
 	apiVersion, ok := castedValue["api"].(string)
-	space, ok2 := castedValue["space"].(string)
+	space, ok2 := castedValue["url"].(string)
 
 	if ok && ok2 {
 		return apiVersion, space, flatten(castedValue, ""), nil
