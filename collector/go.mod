@@ -3,6 +3,7 @@ module github.com/spaceapi/directory-api/collector
 go 1.12
 
 require (
+	github.com/codingsince1985/geo-golang v1.6.1
 	github.com/felixge/httpsnoop v1.0.1
 	github.com/golang/protobuf v1.3.5 // indirect
 	github.com/prometheus/client_golang v1.3.0
