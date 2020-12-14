@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"github.com/felixge/httpsnoop"
+	"github.com/itchyny/gojq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
@@ -19,19 +20,32 @@ import (
 //go:generate go run scripts/generateOpenApi.go
 
 type entry struct {
-	Url      string   `json:"url"`
-	Valid    bool     `json:"valid"`
-	Space    string   `json:"space,omitempty"`
-	LastSeen int64    `json:"lastSeen,omitempty"`
-	ErrMsg   []string `json:"errMsg,omitempty"`
+	Url              string      `json:"url"`
+	Valid            bool        `json:"valid"`
+	Space            string      `json:"space,omitempty"`
+	LastSeen         int64       `json:"lastSeen,omitempty"`
+	ErrMsg           []string    `json:"errMsg,omitempty"`
+	Data             interface{} `json:"data,omitempty"`
+	ValidationResult validationResult `json:"validationResult,omitempty"`
+}
+
+type validationResult struct {
+	Valid       bool `json:"valid"`
+	IsHttps     bool `json:"isHttp"`
+	HttpForward bool `json:"httpsForward"`
+	Reachable   bool `json:"reachable"`
+	Cors        bool `json:"cors"`
+	ContentType bool `json:"contentType"`
+	CertValid   bool `json:"certValid"`
 }
 
 type collectorEntry struct {
-	Url      string      `json:"url"`
-	Valid    bool        `json:"valid"`
-	LastSeen int64       `json:"lastSeen,omitempty"`
-	ErrMsg   []string    `json:"errMsg,omitempty"`
-	Data     interface{} `json:"data,omitempty"`
+	Url              string           `json:"url"`
+	Valid            bool             `json:"valid"`
+	LastSeen         int64            `json:"lastSeen,omitempty"`
+	ErrMsg           []string         `json:"errMsg,omitempty"`
+	Data             interface{}      `json:"data,omitempty"`
+	ValidationResult validationResult `json:"validationResult,omitempty"`
 }
 
 var (
@@ -51,7 +65,8 @@ func init() {
 	flag.StringVar(
 		&spaceApiCollectorUrl,
 		"collectorUrl",
-		"http://collector:8080",
+		// "http://collector:8080",
+		"http://api.spaceapi.io/collector",
 		"Url to the collector service",
 	)
 
@@ -103,11 +118,20 @@ func getFilter(r *http.Request) (bool, bool) {
 	return true, false
 }
 
+func getJQFilter(r *http.Request) string {
+    filter := r.URL.Query().Get("filter")
+	if filter != "" {
+		return `.[] | select(` + filter + `)`
+	}
+
+	return ".[]"
+}
+
 func serveV1(w http.ResponseWriter, r *http.Request) {
 	validFilter, noFilter := getFilter(r)
 	if err := json.NewEncoder(w).Encode(func() interface{} {
 		response := make(map[string]string)
-		for _, entry := range getDirectory() {
+		for _, entry := range getDirectory(getJQFilter(r)) {
 			if entry.Valid == validFilter || noFilter == true {
 				if entry.Data != nil {
 					spaceName := entry.Data.(map[string]interface{})["space"]
@@ -126,9 +150,21 @@ func serveV1(w http.ResponseWriter, r *http.Request) {
 
 func serveV2(w http.ResponseWriter, r *http.Request) {
 	validFilter, noFilter := getFilter(r)
+	includeDataParam := r.URL.Query().Get("includeData")
+	includeData, err := strconv.ParseBool(includeDataParam)
+	if err != nil {
+		includeData = false
+	}
+
+	includeValidationResultParam := r.URL.Query().Get("includeValidationResult")
+	includeValidationResult, err := strconv.ParseBool(includeValidationResultParam)
+	if err != nil {
+		includeValidationResult = false
+	}
+
 	if err := json.NewEncoder(w).Encode(func() []entry {
 		var response []entry
-		for _, collectorEntry := range getDirectory() {
+		for _, collectorEntry := range getDirectory(getJQFilter(r)) {
 			if collectorEntry.Valid == validFilter || noFilter == true {
 				var spaceName string
 				if collectorEntry.Data != nil {
@@ -136,12 +172,25 @@ func serveV2(w http.ResponseWriter, r *http.Request) {
 				} else {
 					spaceName = ""
 				}
+
+				var data interface{}
+				if includeData  {
+					data = collectorEntry.Data
+				}
+
+				var validationResult validationResult
+				if includeValidationResult {
+					validationResult = collectorEntry.ValidationResult
+				}
+
 				response = append(response, entry{
 					collectorEntry.Url,
 					collectorEntry.Valid,
 					spaceName,
 					collectorEntry.LastSeen,
 					collectorEntry.ErrMsg,
+					data,
+					validationResult,
 				})
 			}
 		}
@@ -156,7 +205,7 @@ func serveCache(w http.ResponseWriter, r *http.Request) {
 	validFilter, noFilter := getFilter(r)
 	if err := json.NewEncoder(w).Encode(func() []collectorEntry {
 		var response []collectorEntry
-		for _, collectorEntry := range getDirectory() {
+		for _, collectorEntry := range getDirectory(getJQFilter(r)) {
 			if collectorEntry.Valid == validFilter || noFilter == true {
 				response = append(response, collectorEntry)
 			}
@@ -176,7 +225,8 @@ func statisticMiddelware(inner http.Handler) http.Handler {
 	return http.HandlerFunc(mw)
 }
 
-func getDirectory() []collectorEntry {
+func getDirectory(filter string) []collectorEntry {
+	var staticDirectory []collectorEntry
 	resp, err := http.Get(spaceApiCollectorUrl)
 	if err != nil {
 		log.Println(err)
@@ -193,8 +243,38 @@ func getDirectory() []collectorEntry {
 		log.Println(err)
 	}
 
-	var staticDirectory []collectorEntry
-	err = json.Unmarshal(body, &staticDirectory)
+	query, err := gojq.Parse(filter)
+	if err != nil {
+		log.Println(err)
+	}
+
+	var m interface{}
+    err = json.Unmarshal(body, &m)
+
+
+    iter := query.Run(m)
+    for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			log.Println(err)
+		}
+
+		marshal, err := json.Marshal(v)
+		if err != nil {
+			continue
+		}
+
+		var entry collectorEntry
+		err = json.Unmarshal(marshal, &entry)
+		if err != nil {
+			continue
+		}
+
+		staticDirectory = append(staticDirectory, entry)
+	}
 
 	return staticDirectory
 }

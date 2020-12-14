@@ -1,10 +1,6 @@
 {
   "openapi": "3.0.0",
-  "servers": [
-    {
-      "url": "https://api.spaceapi.io"
-    }
-  ],
+
   "info": {
     "description": "This is the spaceApi directory",
     "version": "0.0.1",
@@ -36,6 +32,28 @@
               "default": "true"
             },
             "description": "Filter for valid endpoints"
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            },
+            "description": "jq select filter",
+            "examples": {
+              "only ext_ccc": {
+                "summary": "Get all spaces wich are providing the ext_ccc field",
+                "value": ".data.ext_ccc"
+              },
+              "valid": {
+                "summary": "Get all valid spaces",
+                "value": ".valid == true"
+              },
+              "https and has twitter": {
+                "summary": "Get all spaces using https that are providing a twitter contact",
+                "value": ".validationResult.isHttps == true and .validationResult.cors == true and .data.contact.twitter"
+              }
+            }
           }
         ],
         "responses": {
@@ -72,6 +90,44 @@
               "default": "true"
             },
             "description": "Filter for valid endpoints"
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            },
+            "description": "jq select filter",
+            "examples": {
+              "only ext_ccc": {
+                "summary": "Get all spaces wich are providing the ext_ccc field",
+                "value": ".data.ext_ccc"
+              },
+              "valid": {
+                "summary": "Get all valid spaces",
+                "value": ".valid == true"
+              },
+              "https and has twitter": {
+                "summary": "Get all spaces using https that are providing a twitter contact",
+                "value": ".validationResult.isHttps == true and .data.contact.twitter"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "includeData",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Add last validated data to response"
+          },
+          {
+            "in": "query",
+            "name": "includeValidationResult",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Add last validation result"
           }
         ],
         "responses": {
@@ -123,6 +179,10 @@
                 "lastSeen": {
                   "description": "when we've seen the endpoint the last time (doesn't have to be valid, but the url was reachable and provided valid json)",
                   "type": "number"
+                },
+                "data": {
+                  "description": "Last validated data",
+                  "type": "object"
                 },
                 "errMsg": {
                   "description": "provided if we found an error with that specific endpoint",
