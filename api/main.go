@@ -26,12 +26,12 @@ type entry struct {
 	LastSeen         int64       `json:"lastSeen,omitempty"`
 	ErrMsg           []string    `json:"errMsg,omitempty"`
 	Data             interface{} `json:"data,omitempty"`
-	ValidationResult validationResult `json:"validationResult,omitempty"`
+	ValidationResult *validationResult `json:"validationResult,omitempty"`
 }
 
 type validationResult struct {
 	Valid       bool `json:"valid"`
-	IsHttps     bool `json:"isHttp"`
+	IsHttps     bool `json:"isHttps"`
 	HttpForward bool `json:"httpsForward"`
 	Reachable   bool `json:"reachable"`
 	Cors        bool `json:"cors"`
@@ -45,7 +45,7 @@ type collectorEntry struct {
 	LastSeen         int64            `json:"lastSeen,omitempty"`
 	ErrMsg           []string         `json:"errMsg,omitempty"`
 	Data             interface{}      `json:"data,omitempty"`
-	ValidationResult validationResult `json:"validationResult,omitempty"`
+	ValidationResult *validationResult `json:"validationResult,omitempty"`
 }
 
 var (
@@ -65,8 +65,7 @@ func init() {
 	flag.StringVar(
 		&spaceApiCollectorUrl,
 		"collectorUrl",
-		// "http://collector:8080",
-		"http://api.spaceapi.io/collector",
+		"http://collector:8080",
 		"Url to the collector service",
 	)
 
@@ -178,7 +177,7 @@ func serveV2(w http.ResponseWriter, r *http.Request) {
 					data = collectorEntry.Data
 				}
 
-				var validationResult validationResult
+				var validationResult *validationResult
 				if includeValidationResult {
 					validationResult = collectorEntry.ValidationResult
 				}

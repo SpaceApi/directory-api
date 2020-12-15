@@ -99,17 +99,17 @@
             },
             "description": "jq select filter",
             "examples": {
+              "https and has twitter": {
+                "summary": "Get all spaces using https that have a valid certificate",
+                "value": ".validationResult.isHttps == true and .validationResult.certValid == true"
+              },
               "only ext_ccc": {
                 "summary": "Get all spaces wich are providing the ext_ccc field",
                 "value": ".data.ext_ccc"
               },
-              "valid": {
-                "summary": "Get all valid spaces",
-                "value": ".valid == true"
-              },
-              "https and has twitter": {
-                "summary": "Get all spaces using https that are providing a twitter contact",
-                "value": ".validationResult.isHttps == true and .data.contact.twitter"
+              "cors": {
+                "summary": "Get all spaces that send CORS headers",
+                "value": ".validationResult.cors == true"
               }
             }
           },
@@ -117,7 +117,8 @@
             "in": "query",
             "name": "includeData",
             "schema": {
-              "type": "boolean"
+              "type": "boolean",
+              "default": false
             },
             "description": "Add last validated data to response"
           },
@@ -125,7 +126,8 @@
             "in": "query",
             "name": "includeValidationResult",
             "schema": {
-              "type": "boolean"
+              "type": "boolean",
+              "default": false
             },
             "description": "Add last validation result"
           }
@@ -155,46 +157,74 @@
         "properties": {}
       },
       "DirectoryV2": {
-        "description": "SpaceAPI Directory 0.2",
-        "type": "object",
-        "properties": {
-          "items": {
-            "description": "List of directory entries",
-            "type": "array",
-            "items": {
+        "description": "List of directory entries",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "description": "url to the spaceapi file",
+              "type": "string"
+            },
+            "valid": {
+              "description": "indicates if the provided file is valid",
+              "type": "boolean"
+            },
+            "space": {
+              "description": "The name of the space",
+              "type": "string"
+            },
+            "lastSeen": {
+              "description": "when we've seen the endpoint the last time (doesn't have to be valid, but the url was reachable and provided valid json)",
+              "type": "number"
+            },
+            "data": {
+              "description": "Last validated data",
+              "type": "object"
+            },
+            "validationResult": {
+              "description": "Last Validation result",
               "type": "object",
               "properties": {
-                "url": {
-                  "description": "url to the spaceapi file",
-                  "type": "string"
-                },
                 "valid": {
-                  "description": "indicates if the provided file is valid",
+                  "description": "Data is valid against the spaceapi schema",
                   "type": "boolean"
                 },
-                "space": {
-                  "description": "The name of the space",
-                  "type": "string"
+                "isHttp": {
+                  "description": "Endpoint uses https",
+                  "type": "boolean"
                 },
-                "lastSeen": {
-                  "description": "when we've seen the endpoint the last time (doesn't have to be valid, but the url was reachable and provided valid json)",
-                  "type": "number"
+                "httpsForward": {
+                  "description": "Endpoint forwards http calls to https",
+                  "type": "boolean"
                 },
-                "data": {
-                  "description": "Last validated data",
-                  "type": "object"
+                "reachable": {
+                  "description": "We could reach the endpoint at the last check",
+                  "type": "boolean"
                 },
-                "errMsg": {
-                  "description": "provided if we found an error with that specific endpoint",
-                  "type": "string"
+                "cors": {
+                  "description": "Endpoint sends CORS headers",
+                  "type": "boolean"
+                },
+                "contentType": {
+                  "description": "Endpoint sends Content-Type header",
+                  "type": "boolean"
+                },
+                "certValid": {
+                  "description": "Endpoint provides valid tls cert",
+                  "type": "boolean"
                 }
-              },
-              "required": [
-                "url",
-                "valid"
-              ]
+              }
+            },
+            "errMsg": {
+              "description": "provided if we found an error with that specific endpoint",
+              "type": "string"
             }
-          }
+          },
+          "required": [
+            "url",
+            "valid"
+          ]
         }
       }
     }
