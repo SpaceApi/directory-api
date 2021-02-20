@@ -49,13 +49,23 @@ var (
 	)
 )
 
+type ValidateUrlV2Response struct {
+	Valid         bool                   `json:"valid"`
+	IsHttps       bool                   `json:"isHttps"`
+	HttpsForward  bool                   `json:"httpsForward"`
+	Reachable     bool                   `json:"reachable"`
+	Cors          bool                   `json:"cors"`
+	ContentType   bool                   `json:"contentType"`
+	CertValid     bool                   `json:"certValid"`
+}
+
 type entry struct {
 	Url      string      `json:"url"`
 	Valid    bool        `json:"valid"`
 	LastSeen int64       `json:"lastSeen,omitempty"`
 	ErrMsg   []string    `json:"errMsg,omitempty"`
 	Data     map[string]interface{} `json:"data,omitempty"`
-	ValidationResult	spaceapivalidatorclient.ValidateUrlV2Response	`json:"validationResult,omitempty"`
+	ValidationResult	ValidateUrlV2Response	`json:"validationResult,omitempty"`
 }
 
 var spaceApiDirectory map[string]entry
@@ -288,7 +298,16 @@ func buildEntry(ctx context.Context, url string, c chan entry) {
 		return
 	}
 
-	entry.ValidationResult = response
+
+	entry.ValidationResult = ValidateUrlV2Response{
+		Valid: response.Valid,
+		IsHttps: response.IsHttps,
+		HttpsForward: response.HttpsForward,
+		Reachable: response.Reachable,
+		Cors: response.Cors,
+		ContentType: response.ContentType,
+		CertValid: response.CertValid,
+	}
 	entry.Valid = response.Valid
 	entry.LastSeen = time.Now().Unix()
 	entry.Data = response.ValidatedJson
