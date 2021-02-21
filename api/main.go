@@ -20,12 +20,12 @@ import (
 //go:generate go run scripts/generateOpenApi.go
 
 type entry struct {
-	Url              string      `json:"url"`
-	Valid            bool        `json:"valid"`
-	Space            string      `json:"space,omitempty"`
-	LastSeen         int64       `json:"lastSeen,omitempty"`
-	ErrMsg           []string    `json:"errMsg,omitempty"`
-	Data             interface{} `json:"data,omitempty"`
+	Url              string            `json:"url"`
+	Valid            bool              `json:"valid"`
+	Space            string            `json:"space,omitempty"`
+	LastSeen         int64             `json:"lastSeen,omitempty"`
+	ErrMsg           []string          `json:"errMsg,omitempty"`
+	Data             interface{}       `json:"data,omitempty"`
 	ValidationResult *validationResult `json:"validationResult,omitempty"`
 }
 
@@ -40,11 +40,11 @@ type validationResult struct {
 }
 
 type collectorEntry struct {
-	Url              string           `json:"url"`
-	Valid            bool             `json:"valid"`
-	LastSeen         int64            `json:"lastSeen,omitempty"`
-	ErrMsg           []string         `json:"errMsg,omitempty"`
-	Data             interface{}      `json:"data,omitempty"`
+	Url              string            `json:"url"`
+	Valid            bool              `json:"valid"`
+	LastSeen         int64             `json:"lastSeen,omitempty"`
+	ErrMsg           []string          `json:"errMsg,omitempty"`
+	Data             interface{}       `json:"data,omitempty"`
 	ValidationResult *validationResult `json:"validationResult,omitempty"`
 }
 
@@ -69,7 +69,7 @@ func init() {
 		"Url to the collector service",
 	)
 
-    flag.Parse()
+	flag.Parse()
 }
 
 func main() {
@@ -118,7 +118,7 @@ func getFilter(r *http.Request) (bool, bool) {
 }
 
 func getJQFilter(r *http.Request) string {
-    filter := r.URL.Query().Get("filter")
+	filter := r.URL.Query().Get("filter")
 	if filter != "" {
 		return `.[] | select(` + filter + `)`
 	}
@@ -173,7 +173,7 @@ func serveV2(w http.ResponseWriter, r *http.Request) {
 				}
 
 				var data interface{}
-				if includeData  {
+				if includeData {
 					data = collectorEntry.Data
 				}
 
@@ -248,11 +248,10 @@ func getDirectory(filter string) []collectorEntry {
 	}
 
 	var m interface{}
-    err = json.Unmarshal(body, &m)
+	err = json.Unmarshal(body, &m)
 
-
-    iter := query.Run(m)
-    for {
+	iter := query.Run(m)
+	for {
 		v, ok := iter.Next()
 		if !ok {
 			break

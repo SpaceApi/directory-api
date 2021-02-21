@@ -50,22 +50,22 @@ var (
 )
 
 type ValidateUrlV2Response struct {
-	Valid         bool                   `json:"valid"`
-	IsHttps       bool                   `json:"isHttps"`
-	HttpsForward  bool                   `json:"httpsForward"`
-	Reachable     bool                   `json:"reachable"`
-	Cors          bool                   `json:"cors"`
-	ContentType   bool                   `json:"contentType"`
-	CertValid     bool                   `json:"certValid"`
+	Valid        bool `json:"valid"`
+	IsHttps      bool `json:"isHttps"`
+	HttpsForward bool `json:"httpsForward"`
+	Reachable    bool `json:"reachable"`
+	Cors         bool `json:"cors"`
+	ContentType  bool `json:"contentType"`
+	CertValid    bool `json:"certValid"`
 }
 
 type entry struct {
-	Url      string      `json:"url"`
-	Valid    bool        `json:"valid"`
-	LastSeen int64       `json:"lastSeen,omitempty"`
-	ErrMsg   []string    `json:"errMsg,omitempty"`
-	Data     map[string]interface{} `json:"data,omitempty"`
-	ValidationResult	ValidateUrlV2Response	`json:"validationResult,omitempty"`
+	Url              string                 `json:"url"`
+	Valid            bool                   `json:"valid"`
+	LastSeen         int64                  `json:"lastSeen,omitempty"`
+	ErrMsg           []string               `json:"errMsg,omitempty"`
+	Data             map[string]interface{} `json:"data,omitempty"`
+	ValidationResult ValidateUrlV2Response  `json:"validationResult,omitempty"`
 }
 
 var spaceApiDirectory map[string]entry
@@ -249,9 +249,9 @@ func buildDirectory(ctx context.Context) {
 
 	n := len(spaceApiUrls)
 	for ; n > 0; n-- {
-		v := <- c
+		v := <-c
 		if v.LastSeen == 0 {
-		    v.LastSeen = spaceApiDirectory[v.Url].LastSeen
+			v.LastSeen = spaceApiDirectory[v.Url].LastSeen
 		}
 
 		spaceApiDirectory[v.Url] = v
@@ -264,7 +264,7 @@ func validateEntry(ctx context.Context, url string) (spaceapivalidatorclient.Val
 	if err != nil {
 		if httpResp != nil && httpResp.StatusCode == 429 {
 			log.Println("Too many requests, enhancing calm...")
-			time.Sleep(time.Duration(rand.Intn(9) + 1) * time.Second)
+			time.Sleep(time.Duration(rand.Intn(9)+1) * time.Second)
 			return validateEntry(ctx, url)
 		}
 
@@ -284,7 +284,7 @@ func validateEntry(ctx context.Context, url string) (spaceapivalidatorclient.Val
 }
 
 func buildEntry(ctx context.Context, url string, c chan entry) {
-	ctx, _ = context.WithTimeout(ctx, 30 * time.Second)
+	ctx, _ = context.WithTimeout(ctx, 30*time.Second)
 	start := time.Now()
 
 	entry := entry{
@@ -298,15 +298,14 @@ func buildEntry(ctx context.Context, url string, c chan entry) {
 		return
 	}
 
-
 	entry.ValidationResult = ValidateUrlV2Response{
-		Valid: response.Valid,
-		IsHttps: response.IsHttps,
+		Valid:        response.Valid,
+		IsHttps:      response.IsHttps,
 		HttpsForward: response.HttpsForward,
-		Reachable: response.Reachable,
-		Cors: response.Cors,
-		ContentType: response.ContentType,
-		CertValid: response.CertValid,
+		Reachable:    response.Reachable,
+		Cors:         response.Cors,
+		ContentType:  response.ContentType,
+		CertValid:    response.CertValid,
 	}
 	entry.Valid = response.Valid
 	entry.LastSeen = time.Now().Unix()

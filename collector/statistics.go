@@ -101,7 +101,7 @@ func getCountryCodeForLatLong(lat, long float64) (string, error) {
 }
 
 func generateFieldStatistic(jsonArray map[string]entry) {
-	newStats :=  make(map[string][]string)
+	newStats := make(map[string][]string)
 
 	spaceVersionGauge.Reset()
 	for _, value := range jsonArray {
