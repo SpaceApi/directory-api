@@ -73,6 +73,8 @@ github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPx
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/spaceapi-community/go-spaceapi-validator-client v0.0.0-20200104101806-0433af38010f h1:8HjPc6E2+qGxbJTEvEMbtbHEdpCx+2ind2Vio4OTN2M=
 github.com/spaceapi-community/go-spaceapi-validator-client v0.0.0-20200104101806-0433af38010f/go.mod h1:Ck0OJ8C10sWvtKTGD63n9A1qEETdJe0k0XLZFIOcbkw=
+github.com/spaceapi-community/go-spaceapi-validator-client v1.2.0 h1:ig3KxosKgCrRHZJcLeFf5GvJwl6j0O+/XDQO75TFioU=
+github.com/spaceapi-community/go-spaceapi-validator-client v1.2.0/go.mod h1:AerddkhNG7XdxqCcjK7P1bk1473uGCsqN81T8wuHY7E=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=

@@ -47,16 +47,24 @@ var (
 		},
 		[]string{"route", "attribute"},
 	)
+	spaceValidationVersionsGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "spaceapi_validation_version",
+			Help: "SpaceAPI versions implemented by an endpoint",
+		},
+		[]string{"route", "version"},
+	)
 )
 
 type ValidateUrlV2Response struct {
-	Valid        bool `json:"valid"`
-	IsHttps      bool `json:"isHttps"`
-	HttpsForward bool `json:"httpsForward"`
-	Reachable    bool `json:"reachable"`
-	Cors         bool `json:"cors"`
-	ContentType  bool `json:"contentType"`
-	CertValid    bool `json:"certValid"`
+	Valid           bool     `json:"valid"`
+	IsHttps         bool     `json:"isHttps"`
+	HttpsForward    bool     `json:"httpsForward"`
+	Reachable       bool     `json:"reachable"`
+	Cors            bool     `json:"cors"`
+	ContentType     bool     `json:"contentType"`
+	CertValid       bool     `json:"certValid"`
+	CheckedVersions []string `json:"checkedVersions"`
 }
 
 type entry struct {
@@ -95,6 +103,7 @@ func main() {
 	prometheus.MustRegister(staticFileScrapCounter)
 	prometheus.MustRegister(spaceRequestSummary)
 	prometheus.MustRegister(spaceValidationGauge)
+	prometheus.MustRegister(spaceValidationVersionsGauge)
 	spaceApiDirectory = make(map[string]entry)
 
 	directorySuccessfullyLoaded := loadPersistentDirectory()
@@ -279,7 +288,9 @@ func validateEntry(ctx context.Context, url string) (spaceapivalidatorclient.Val
 	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "ContentType"}).Set(b2i[response.ContentType])
 	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "CertValid"}).Set(b2i[response.CertValid])
 	defer spaceValidationGauge.With(prometheus.Labels{"route": url, "attribute": "Valid"}).Set(b2i[response.Valid])
-
+	for _, v := range response.CheckedVersions {
+		defer spaceValidationVersionsGauge.With(prometheus.Labels{"route": url, "version": v}).Set(1)
+	}
 	return response, nil
 }
 
@@ -299,13 +310,14 @@ func buildEntry(ctx context.Context, url string, c chan entry) {
 	}
 
 	entry.ValidationResult = ValidateUrlV2Response{
-		Valid:        response.Valid,
-		IsHttps:      response.IsHttps,
-		HttpsForward: response.HttpsForward,
-		Reachable:    response.Reachable,
-		Cors:         response.Cors,
-		ContentType:  response.ContentType,
-		CertValid:    response.CertValid,
+		Valid:           response.Valid,
+		IsHttps:         response.IsHttps,
+		HttpsForward:    response.HttpsForward,
+		Reachable:       response.Reachable,
+		Cors:            response.Cors,
+		ContentType:     response.ContentType,
+		CertValid:       response.CertValid,
+		CheckedVersions: response.CheckedVersions,
 	}
 	entry.Valid = response.Valid
 	entry.LastSeen = time.Now().Unix()

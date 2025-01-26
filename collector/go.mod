@@ -10,7 +10,7 @@ require (
 	github.com/prometheus/procfs v0.0.11 // indirect
 	github.com/robfig/cron v1.2.0
 	github.com/rs/cors v1.7.0
-	github.com/spaceapi-community/go-spaceapi-validator-client v0.0.0-20200104101806-0433af38010f
+	github.com/spaceapi-community/go-spaceapi-validator-client v1.2.0
 	goji.io v2.0.2+incompatible
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6 // indirect
