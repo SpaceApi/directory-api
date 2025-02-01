@@ -1,0 +1,48 @@
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "0 4 * * 1"  # weekly
+
+name: publish
+
+jobs:
+  publish:
+    name: Publish Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build directory-api image
+        run: |
+          cd api
+          docker build \
+            --no-cache \
+            --tag ghcr.io/spaceapi/directory-api \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            .
+      - name: Publish directory-api image
+        run: |
+          docker tag ghcr.io/spaceapi/directory-api ghcr.io/spaceapi/directory-api:$GITHUB_SHA
+          docker push ghcr.io/spaceapi/directory-api:$GITHUB_SHA
+          docker push ghcr.io/spaceapi/directory-api:latest
+      - name: Build directory-collector image
+        run: |
+          cd collector
+          docker build \
+            --no-cache \
+            --tag ghcr.io/spaceapi/directory-collector \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            .
+      - name: Publish directory-collector image
+        run: |
+          docker tag ghcr.io/spaceapi/directory-collector ghcr.io/spaceapi/directory-collector:$GITHUB_SHA
+          docker push ghcr.io/spaceapi/directory-collector:$GITHUB_SHA
+          docker push ghcr.io/spaceapi/directory-collector:latest
