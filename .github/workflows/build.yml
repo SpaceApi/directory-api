@@ -18,7 +18,11 @@ jobs:
       - name: Build directory-api image
         run: |
           cd api
-          docker build --no-cache -t ghcr.io/spaceapi/directory-api .
+          docker build \
+            --no-cache \
+            --tag ghcr.io/spaceapi/directory-api \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            .
       - name: Publish directory-api image
         run: |
           docker tag ghcr.io/spaceapi/directory-api ghcr.io/spaceapi/directory-api:$GITHUB_SHA
@@ -27,7 +31,11 @@ jobs:
       - name: Build directory-collector image
         run: |
           cd collector
-          docker build --no-cache -t ghcr.io/spaceapi/directory-collector .
+          docker build \
+            --no-cache \
+            --tag ghcr.io/spaceapi/directory-collector \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            .
       - name: Publish directory-collector image
         run: |
           docker tag ghcr.io/spaceapi/directory-collector ghcr.io/spaceapi/directory-collector:$GITHUB_SHA
