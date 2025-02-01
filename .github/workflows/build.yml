@@ -1,0 +1,35 @@
+
+on:
+  push:
+    branches:
+      - master
+      - chore-github-actions  # for testing only, remove before merging
+  schedule:
+    - cron: "0 4 * * 1"  # weekly
+
+name: build
+
+jobs:
+  build:
+    name: Publish Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build directory-api image
+        run: |
+          cd api
+          docker build --no-cache -t ghcr.io/spaceapi/directory-api
+      - name: Publish directory-api image
+        run: |
+          docker tag ghcr.io/spaceapi/directory-api ghcr.io/spaceapi/directory-api:$GITHUB_SHA
+          docker push ghcr.io/spaceapi/directory-api:$GITHUB_SHA
+          docker push ghcr.io/spaceapi/directory-api:latest
+      - name: Build directory-collector image
+        run: |
+          cd collector
+          docker build --no-cache -t ghcr.io/spaceapi/directory-collector
+      - name: Publish directory-collector image
+        run: |
+          docker tag ghcr.io/spaceapi/directory-collector ghcr.io/spaceapi/directory-collector:$GITHUB_SHA
+          docker push ghcr.io/spaceapi/directory-collector:$GITHUB_SHA
+          docker push ghcr.io/spaceapi/directory-collector:latest
